@@ -232,6 +232,11 @@ private:
     add("mode_sleep_time",
         "Auto-Sleep Time:", "Tiempo de Suspensión (Auto-Sleep):");
     add("btn_apply_lighting", "Apply Lighting", "Aplicar Iluminación");
+    add("mode_applied_success", "RGB lighting applied and saved to keyboard!",
+        "¡Iluminación RGB aplicada y guardada en el teclado!");
+    add("btn_turn_on_leds", "Turn On LEDs (Rainbow)",
+        "Encender LEDs (Arcoíris)");
+    add("btn_turn_off_leds", "Turn Off LEDs", "Apagar LEDs");
     add("dir_left", "Left", "Izquierda");
     add("dir_up", "Up", "Arriba");
     add("dir_down", "Down", "Abajo");

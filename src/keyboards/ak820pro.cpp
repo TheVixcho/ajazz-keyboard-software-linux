@@ -161,7 +161,8 @@ AK820Pro::~AK820Pro() {
 }
 
 bool AK820Pro::openHandle() {
-  if (this->handle) {
+  std::lock_guard<std::mutex> lock(this->hidMutex);
+  if (this->handle || this->wirelessHandle) {
     return true;
   }
 
@@ -204,7 +205,7 @@ bool AK820Pro::openHandle() {
     }
   }
 
-  // Prioritize Wired (USB cable)
+  // Open Wired (USB cable) if present
   if (!cmdPathWired.empty()) {
     this->handle = hid_open_path(cmdPathWired.c_str());
     if (this->handle) {
@@ -233,33 +234,29 @@ bool AK820Pro::openHandle() {
               " (errno: " + std::to_string(errno) + ")");
         }
       }
-
-      hid_free_enumeration(devs);
-      return true;
     }
   }
 
-  // Fallback to Wireless 2.4G
+  // Also open Wireless 2.4G dongle if present (covers both USB switch positions)
   if (!cmdPathWireless.empty()) {
-    this->handle = hid_open_path(cmdPathWireless.c_str());
-    if (this->handle) {
-      this->activePath = cmdPathWireless;
-      this->pid = AK820PRO_PID_WIRELESS;
-      this->wirelessMode = true;
-      this->dispPath.clear();
-      if (this->dispFd >= 0) {
-        ::close(this->dispFd);
-        this->dispFd = -1;
-      }
+    this->wirelessHandle = hid_open_path(cmdPathWireless.c_str());
+    if (this->wirelessHandle) {
       this->lastErrorMessage.clear();
-      Logger::getInstance().success("Conectado a 2.4GHz Dongle (0xfdfd) en " +
-                                    this->activePath);
-      hid_free_enumeration(devs);
-      return true;
+      Logger::getInstance().success("Canal 2.4GHz Dongle (0xfdfd) abierto en " +
+                                    cmdPathWireless);
+      if (!this->handle) {
+        this->activePath = cmdPathWireless;
+        this->pid = AK820PRO_PID_WIRELESS;
+        this->wirelessMode = true;
+      }
     }
   }
 
   hid_free_enumeration(devs);
+  if (this->handle || this->wirelessHandle) {
+    return true;
+  }
+
   this->lastErrorMessage =
       "No se pudo abrir el dispositivo. Comprueba permisos udev y conexión.";
   Logger::getInstance().error(this->lastErrorMessage);
@@ -267,6 +264,7 @@ bool AK820Pro::openHandle() {
 }
 
 void AK820Pro::closeHandle() {
+  std::lock_guard<std::mutex> lock(this->hidMutex);
   if (this->dispFd >= 0) {
     ::close(this->dispFd);
     this->dispFd = -1;
@@ -275,42 +273,69 @@ void AK820Pro::closeHandle() {
   if (this->handle) {
     hid_close(this->handle);
     this->handle = nullptr;
-    Logger::getInstance().info("Conexión con el teclado cerrada.");
   }
+  if (this->wirelessHandle) {
+    hid_close(this->wirelessHandle);
+    this->wirelessHandle = nullptr;
+  }
+  Logger::getInstance().info("Conexión con el teclado cerrada.");
 }
 
-bool AK820Pro::isConnected() const { return (this->handle != nullptr); }
+bool AK820Pro::isConnected() const {
+  return (this->handle != nullptr || this->wirelessHandle != nullptr);
+}
 
-bool AK820Pro::isWireless() const { return this->wirelessMode; }
+bool AK820Pro::isWireless() const {
+  return (this->handle == nullptr && this->wirelessHandle != nullptr);
+}
 
 bool AK820Pro::isDisplayAvailable() const { return (this->dispFd >= 0); }
 
 std::string AK820Pro::getConnectionStatus() const {
-  if (!this->handle) {
+  if (!this->handle && !this->wirelessHandle) {
     return "Desconectado";
   }
-  return this->wirelessMode ? "Conectado (2.4GHz Dongle)"
-                            : "Conectado (Cable USB)";
+  if (this->handle && this->wirelessHandle) {
+    return "Conectado (Cable USB + Dongle 2.4G)";
+  }
+  return this->handle ? "Conectado (Cable USB)"
+                      : "Conectado (2.4GHz Dongle)";
 }
 
 std::string AK820Pro::getLastError() const { return this->lastErrorMessage; }
 
 bool AK820Pro::sendPacket(const uint8_t *payload64) const {
-  if (!this->handle)
+  if (!this->handle && !this->wirelessHandle)
     return false;
 
-  uint8_t buffer[65] = {0};
-  buffer[0] = 0x00; // Report ID 0x00 for unnumbered reports
-  memcpy(buffer + 1, payload64, 64);
+  uint8_t report[65] = {0};
+  report[0] = 0x00; // Report ID 0x00 for unnumbered reports
+  memcpy(report + 1, payload64, PACKET_LENGTH);
 
-  int res = hid_send_feature_report(this->handle, buffer, 65);
-  std::this_thread::sleep_for(std::chrono::milliseconds(35));
+  bool ok = false;
+  if (this->handle) {
+    int res = hid_send_feature_report(this->handle, report, 65);
+    if (res >= 0) ok = true;
+  }
+  if (this->wirelessHandle) {
+    int res = hid_send_feature_report(this->wirelessHandle, report, 65);
+    if (res >= 0) ok = true;
+  }
 
-  uint8_t ack[65] = {0};
-  hid_get_feature_report(this->handle, ack, 65);
-  std::this_thread::sleep_for(std::chrono::milliseconds(35));
+  std::this_thread::sleep_for(std::chrono::milliseconds(40));
+  return ok;
+}
 
-  return (res >= 0);
+void AK820Pro::handshake() const {
+  uint8_t report[65] = {0};
+  report[0] = 0x00;
+  if (this->handle) {
+    hid_get_feature_report(this->handle, report, 65);
+  }
+  if (this->wirelessHandle) {
+    hid_get_feature_report(this->wirelessHandle, report, 65);
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(40));
 }
 
 void AK820Pro::setColor(const uint8_t r, const uint8_t g,
@@ -318,30 +343,28 @@ void AK820Pro::setColor(const uint8_t r, const uint8_t g,
   this->setMode(STATIC, r, g, b, false, MAX_BRIGHTNESS, MAX_SPEED, LEFT);
 }
 
-void AK820Pro::setMode(const LightingMode mode, const uint8_t r,
-                       const uint8_t g, const uint8_t b, const bool rainbow,
-                       const int brightness, const int speed,
-                       const Direction direction) const {
-  if (!this->handle && !const_cast<AK820Pro *>(this)->openHandle()) {
+void AK820Pro::setModeUnlocked(const LightingMode mode, const uint8_t r,
+                               const uint8_t g, const uint8_t b,
+                               const bool rainbow, const int brightness,
+                               const int speed,
+                               const Direction direction) const {
+  if (!this->handle && !this->wirelessHandle &&
+      !const_cast<AK820Pro *>(this)->openHandle()) {
     std::string err =
         "Dispositivo HID no disponible: " + this->lastErrorMessage;
     Logger::getInstance().error(err);
     throw std::runtime_error(err);
   }
 
-  if (brightness < 0 || brightness > MAX_BRIGHTNESS) {
-    throw std::runtime_error("Brightness level cannot be over 5 or under 0");
-  }
-
-  if (speed < 0 || speed > MAX_SPEED) {
-    throw std::runtime_error("Speed cannot be over 5 or under 0");
-  }
+  int bClamped = std::clamp(brightness, 0, (int)MAX_BRIGHTNESS);
+  int sClamped = std::clamp(speed, 0, (int)MAX_SPEED);
 
   Logger::getInstance().info(
       "Aplicando modo LED " + std::to_string(mode) +
       " (R:" + std::to_string(r) + " G:" + std::to_string(g) +
-      " B:" + std::to_string(b) + ", Brillo: " + std::to_string(brightness) +
-      ", Vel: " + std::to_string(speed) + ")");
+      " B:" + std::to_string(b) + ", Brillo: " + std::to_string(bClamped) +
+      ", Vel: " + std::to_string(sClamped) + ", Arcoíris: " +
+      std::string(rainbow ? "Sí" : "No") + ")");
 
   ModePacket packet{};
   memset(&packet, 0, sizeof(packet));
@@ -349,24 +372,33 @@ void AK820Pro::setMode(const LightingMode mode, const uint8_t r,
   packet.r = r;
   packet.g = g;
   packet.b = b;
-  packet.rainbow = rainbow ? 1 : 0;
-  packet.brightness = static_cast<uint8_t>(brightness);
-  packet.speed = static_cast<uint8_t>(speed);
-  packet.direction = static_cast<uint8_t>(direction);
-  packet.delimiter_lo = 0x55;
-  packet.delimiter_hi = 0xaa;
+  packet.options.rainbow = rainbow;
+  packet.options.brightness = static_cast<uint8_t>(bClamped);
+  packet.options.speed = static_cast<uint8_t>(sClamped);
+  packet.options.direction = static_cast<uint8_t>(direction);
+  packet.delimiter = 0xaa55;
 
   uint8_t data[PACKET_LENGTH];
   memcpy(data, &packet, PACKET_LENGTH);
 
+  // Exact transactional sequence:
   this->sendPacket(START_PKT);
   this->sendPacket(START_MODE_PKT);
+  this->handshake();
   this->sendPacket(data);
   this->sendPacket(SAVE_PKT);
-  this->sendPacket(FINISH_PKT);
+  this->handshake();
 
   Logger::getInstance().success(
       "Modo de iluminación enviado y guardado exitosamente.");
+}
+
+void AK820Pro::setMode(const LightingMode mode, const uint8_t r,
+                       const uint8_t g, const uint8_t b, const bool rainbow,
+                       const int brightness, const int speed,
+                       const Direction direction) const {
+  std::lock_guard<std::mutex> lock(this->hidMutex);
+  this->setModeUnlocked(mode, r, g, b, rainbow, brightness, speed, direction);
 }
 
 std::future<void> AK820Pro::setModeAsync(const LightingMode mode,
@@ -383,6 +415,39 @@ std::future<void> AK820Pro::setModeAsync(const LightingMode mode,
       promise->set_value();
     } catch (const std::exception &e) {
       Logger::getInstance().error("Error en setModeAsync: " +
+                                  std::string(e.what()));
+      promise->set_exception(std::current_exception());
+    }
+  }).detach();
+  return fut;
+}
+
+void AK820Pro::applyLighting(const LightingMode mode, const uint8_t r,
+                             const uint8_t g, const uint8_t b,
+                             const bool rainbow, const int brightness,
+                             const int speed, const Direction direction,
+                             const LightSleepTime sleep_delay) const {
+  std::lock_guard<std::mutex> lock(this->hidMutex);
+  this->setModeUnlocked(mode, r, g, b, rainbow, brightness, speed, direction);
+  if (sleep_delay != NONE) {
+    this->setSleepTimeUnlocked(sleep_delay);
+  }
+}
+
+std::future<void> AK820Pro::applyLightingAsync(
+    const LightingMode mode, const uint8_t r, const uint8_t g, const uint8_t b,
+    const bool rainbow, const int brightness, const int speed,
+    const Direction direction, const LightSleepTime sleep_delay) const {
+  auto promise = std::make_shared<std::promise<void>>();
+  auto fut = promise->get_future();
+  std::thread([this, mode, r, g, b, rainbow, brightness, speed, direction,
+               sleep_delay, promise]() {
+    try {
+      this->applyLighting(mode, r, g, b, rainbow, brightness, speed, direction,
+                          sleep_delay);
+      promise->set_value();
+    } catch (const std::exception &e) {
+      Logger::getInstance().error("Error en applyLightingAsync: " +
                                   std::string(e.what()));
       promise->set_exception(std::current_exception());
     }
@@ -440,7 +505,6 @@ void AK820Pro::setPerKeyRGB(const std::vector<KeyColor> &keyColors) const {
   }
 
   this->sendPacket(SAVE_PKT);
-  this->sendPacket(FINISH_PKT);
 
   // Switch lighting mode to CUSTOM (0x80)
   this->setMode(CUSTOM, 255, 255, 255, false, MAX_BRIGHTNESS, MAX_SPEED, LEFT);
@@ -464,20 +528,28 @@ AK820Pro::setPerKeyRGBAsync(const std::vector<KeyColor> &keyColors) const {
   return fut;
 }
 
-void AK820Pro::setSleepTime(const LightSleepTime sleep_time) const {
-  if (!this->handle && !const_cast<AK820Pro *>(this)->openHandle()) {
+void AK820Pro::setSleepTimeUnlocked(const LightSleepTime sleep_time) const {
+  if (!this->handle && !this->wirelessHandle &&
+      !const_cast<AK820Pro *>(this)->openHandle()) {
     throw std::runtime_error("Dispositivo HID no disponible");
   }
 
   uint8_t data[PACKET_LENGTH] = {0};
   data[8] = static_cast<uint8_t>(sleep_time);
-  data[PACKET_LENGTH - 1] = 0x55;
-  data[PACKET_LENGTH - 2] = 0xaa;
+  data[62] = 0xaa;
+  data[63] = 0x55;
 
   this->sendPacket(START_PKT);
   this->sendPacket(START_SLEEP_PKT);
+  this->handshake();
   this->sendPacket(data);
   this->sendPacket(SAVE_PKT);
+  this->handshake();
+}
+
+void AK820Pro::setSleepTime(const LightSleepTime sleep_time) const {
+  std::lock_guard<std::mutex> lock(this->hidMutex);
+  this->setSleepTimeUnlocked(sleep_time);
 }
 
 std::future<void>
@@ -498,7 +570,9 @@ AK820Pro::setSleepTimeAsync(const LightSleepTime sleep_time) const {
 }
 
 void AK820Pro::syncClock(int slot) const {
-  if (!this->handle && !const_cast<AK820Pro *>(this)->openHandle()) {
+  std::lock_guard<std::mutex> lock(this->hidMutex);
+  if (!this->handle && !this->wirelessHandle &&
+      !const_cast<AK820Pro *>(this)->openHandle()) {
     std::string err =
         "Dispositivo HID no disponible: " + this->lastErrorMessage;
     Logger::getInstance().error(err);
@@ -528,8 +602,10 @@ void AK820Pro::syncClock(int slot) const {
 
   this->sendPacket(START_PKT);
   this->sendPacket(START_TIME_PKT);
+  this->handshake();
   this->sendPacket(timeData);
   this->sendPacket(SAVE_PKT);
+  this->handshake();
 
   Logger::getInstance().success("Reloj RTC sincronizado con éxito.");
 }
@@ -650,7 +726,6 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
   this->uploadStatusDetail =
       "Imagen cargada y guardada exitosamente en la pantalla TFT.";
 
-  // Cache to local gallery so user can view and reapply their uploaded images
   try {
     const char *home = secure_getenv("HOME");
     if (home) {

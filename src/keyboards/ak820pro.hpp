@@ -12,6 +12,7 @@
 #include <future>
 #include <hidapi/hidapi.h>
 #include <iomanip>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -20,18 +21,20 @@
 class AK820Pro {
 public:
   struct __attribute__((packed)) ModePacket {
-    uint8_t mode;         // 0
-    uint8_t r;            // 1
-    uint8_t g;            // 2
-    uint8_t b;            // 3
-    uint8_t padding[4];   // 4..7
-    uint8_t rainbow;      // 8
-    uint8_t brightness;   // 9
-    uint8_t speed;        // 10
-    uint8_t direction;    // 11
-    uint8_t reserved[50]; // 12..61
-    uint8_t delimiter_lo; // 62 (0x55)
-    uint8_t delimiter_hi; // 63 (0xAA)
+    uint8_t mode;        // 0
+    uint8_t r;           // 1
+    uint8_t g;           // 2
+    uint8_t b;           // 3
+    uint32_t padding;    // 4..7
+    struct {
+      bool rainbow;      // 8
+      uint8_t brightness;// 9
+      uint8_t speed;     // 10
+      uint8_t direction; // 11
+    } options;
+    uint16_t padding1;   // 12..13
+    uint16_t delimiter;  // 14..15 (0xaa55)
+    uint8_t additional_data[48]; // 16..63
   };
 
   struct KeyColor {
@@ -65,7 +68,7 @@ public:
     CUSTOM = 0x80
   };
 
-  enum Direction { LEFT = 0, UP = 1, DOWN = 2, RIGHT = 3 };
+  enum Direction { LEFT = 0, DOWN = 1, UP = 2, RIGHT = 3 };
 
   enum LightSleepTime { NONE = 0, ONE_MIN = 1, FIVE_MIN = 2, THIRTY_MIN = 3 };
 
@@ -96,6 +99,14 @@ public:
                                  uint8_t b, bool rainbow, int brightness,
                                  int speed, Direction direction) const;
 
+  void applyLighting(LightingMode mode, uint8_t r, uint8_t g, uint8_t b,
+                     bool rainbow, int brightness, int speed,
+                     Direction direction, LightSleepTime sleep_delay) const;
+  std::future<void> applyLightingAsync(LightingMode mode, uint8_t r, uint8_t g,
+                                       uint8_t b, bool rainbow, int brightness,
+                                       int speed, Direction direction,
+                                       LightSleepTime sleep_delay) const;
+
   void setPerKeyRGB(const std::vector<KeyColor> &keyColors) const;
   std::future<void>
   setPerKeyRGBAsync(const std::vector<KeyColor> &keyColors) const;
@@ -115,6 +126,8 @@ private:
   uint16_t vid;
   uint16_t pid;
   mutable hid_device *handle = nullptr;
+  mutable hid_device *wirelessHandle = nullptr;
+  mutable std::mutex hidMutex;
   mutable int dispFd = -1;
   mutable std::string activePath;
   mutable std::string dispPath;
@@ -128,6 +141,11 @@ private:
   mutable std::string uploadStatusDetail;
 
   bool sendPacket(const uint8_t *payload64) const;
+  void handshake() const;
+  void setModeUnlocked(LightingMode mode, uint8_t r, uint8_t g, uint8_t b,
+                       bool rainbow, int brightness, int speed,
+                       Direction direction) const;
+  void setSleepTimeUnlocked(LightSleepTime sleep_time) const;
 };
 
 static_assert(sizeof(AK820Pro::ModePacket) == 64,

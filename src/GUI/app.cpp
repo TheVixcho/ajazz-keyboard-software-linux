@@ -155,46 +155,7 @@ void AjazzGUI::renderTopToolbar() {
   renderTabButton(tr("tab_device_status"), Tab::DEVICE);
   renderTabButton(tr("tab_logs"), Tab::LOGS);
 
-  // Right-aligned status badge
-  bool connected = GetKeyboard() && GetKeyboard()->isConnected();
-  bool wireless = GetKeyboard() && GetKeyboard()->isWireless();
 
-  std::string statusText = connected
-                               ? (wireless ? tr("status_dongle") : tr("status_usb_cable"))
-                               : tr("status_disconnected");
-  ImVec4 statusColor = connected ? ImVec4(0.25f, 0.85f, 0.45f, 1.00f)
-                                 : ImVec4(0.90f, 0.35f, 0.35f, 1.00f);
-
-  float textWidth = ImGui::CalcTextSize(statusText.c_str()).x;
-  float totalBadgeWidth = textWidth + 20.0f;
-  float rightOffset = 130.0f;
-  float availWidth = ImGui::GetWindowWidth();
-  if (availWidth > 800) {
-    ImGui::SameLine(availWidth - totalBadgeWidth - rightOffset);
-    ImGui::SetCursorPosY(16);
-
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + 5, p.y + 7), 4.5f,
-                                                ImGui::GetColorU32(statusColor));
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 15);
-    ImGui::TextColored(statusColor, "%s", statusText.c_str());
-
-    ImGui::SameLine(0, 10);
-    ImGui::SetCursorPosY(9);
-    if (ImGui::Button(tr("btn_reconnect"), ImVec2(100, 32))) {
-      if (GetKeyboard()) {
-        Logger::getInstance().info("Reconectando desde barra superior...");
-        bool res = GetKeyboard()->openHandle();
-        if (res) {
-          Logger::getInstance().success("Teclado conectado: " +
-                                        GetKeyboard()->getConnectionStatus());
-        } else {
-          Logger::getInstance().error("Error de reconexión: " +
-                                      GetKeyboard()->getLastError());
-        }
-      }
-    }
-  }
 
   ImGui::EndChild();
   ImGui::PopStyleColor();
