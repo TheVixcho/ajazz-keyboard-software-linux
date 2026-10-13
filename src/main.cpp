@@ -1,6 +1,7 @@
 #include <csignal>
 #include <iostream>
 #include <string>
+#include <gtk/gtk.h>
 
 #include "GUI/app.hpp"
 #include "constants.hpp"
@@ -12,6 +13,8 @@ void signalHandler(int signum) {
 }
 
 int main(int argc, char *argv[]) {
+    gtk_init(&argc, &argv);
+
     signal(SIGABRT, signalHandler);
     signal(SIGTERM, signalHandler);
     signal(SIGSEGV, signalHandler);

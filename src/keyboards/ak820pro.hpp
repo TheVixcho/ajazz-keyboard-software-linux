@@ -87,6 +87,8 @@ public:
 
     bool isConnected() const;
     bool isWireless() const;
+    bool isDisplayAvailable() const;
+    uint16_t getPid() const { return this->pid; }
     std::string getConnectionStatus() const;
     std::string getLastError() const;
 
@@ -113,7 +115,9 @@ private:
     uint16_t vid;
     uint16_t pid;
     mutable hid_device* handle = nullptr;
+    mutable int dispFd = -1;
     mutable std::string activePath;
+    mutable std::string dispPath;
     mutable bool wirelessMode = false;
     mutable std::string lastErrorMessage;
 

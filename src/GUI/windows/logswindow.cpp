@@ -36,7 +36,7 @@ void AjazzGUI::LogsWindow() {
   if (copiedLogs) {
     ImGui::SameLine(0, 15);
     ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.4f, 1.0f),
-                       "¡Logs copiados al portapapeles!");
+                       "Logs copiados al portapapeles con exito.");
   }
 
   ImGui::Spacing();

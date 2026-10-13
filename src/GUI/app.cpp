@@ -159,17 +159,23 @@ void AjazzGUI::renderTopToolbar() {
   bool wireless = GetKeyboard() && GetKeyboard()->isWireless();
 
   std::string statusText = connected
-                               ? (wireless ? "● 2.4GHz Dongle" : "● Cable USB")
-                               : "○ Desconectado";
+                               ? (wireless ? "2.4GHz Dongle" : "Cable USB")
+                               : "Desconectado";
   ImVec4 statusColor = connected ? ImVec4(0.25f, 0.85f, 0.45f, 1.00f)
                                  : ImVec4(0.90f, 0.35f, 0.35f, 1.00f);
 
   float textWidth = ImGui::CalcTextSize(statusText.c_str()).x;
+  float totalBadgeWidth = textWidth + 20.0f;
   float rightOffset = 130.0f;
   float availWidth = ImGui::GetWindowWidth();
   if (availWidth > 800) {
-    ImGui::SameLine(availWidth - textWidth - rightOffset);
+    ImGui::SameLine(availWidth - totalBadgeWidth - rightOffset);
     ImGui::SetCursorPosY(16);
+
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + 5, p.y + 7), 4.5f,
+                                                ImGui::GetColorU32(statusColor));
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 15);
     ImGui::TextColored(statusColor, "%s", statusText.c_str());
 
     ImGui::SameLine(0, 10);

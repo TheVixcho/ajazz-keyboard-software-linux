@@ -6,7 +6,7 @@ This is a software to control LEDs, lighting modes, LCD screen and macros
  - [x] Lighting modes
  - [ ] Individual LEDs
  - [ ] Macros
- - [ ] LCD screen images & GIF
+ - [x] LCD screen images & GIF
  - [ ] MULTI LANGUAGE SUPPORT
  - [ ] Sound Reaction (??)
  - [ ] Battery Status
