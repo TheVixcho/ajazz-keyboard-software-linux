@@ -2,3 +2,4 @@ output*.txt
 build/
 cmake-build-*/
 .cache/
+imgui.ini

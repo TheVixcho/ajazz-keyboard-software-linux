@@ -2,11 +2,14 @@
 This is a software to control LEDs, lighting modes, LCD screen and macros
 
 ## TODO
+ - [ ] Install and easy use
  - [x] Lighting modes
  - [ ] Individual LEDs
  - [ ] Macros
  - [ ] LCD screen images & GIF
+ - [ ] MULTI LANGUAGE SUPPORT
  - [ ] Sound Reaction (??)
+ - [ ] Battery Status
 
 ## Installation
 Usual cmake build. You also need to install [hidapi](https://github.com/libusb/hidapi)
