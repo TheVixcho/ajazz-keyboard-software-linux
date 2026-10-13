@@ -11,6 +11,10 @@ This is a software to control LEDs, lighting modes, LCD screen and macros
  - [ ] Sound Reaction (??)
  - [ ] Battery Status
 
+## SO tested
+ - Arch Linux with GNOME
+ - Arch Linux with KDE
+
 ## Installation
 Usual cmake build. You also need to install [hidapi](https://github.com/libusb/hidapi)
 ```bash
