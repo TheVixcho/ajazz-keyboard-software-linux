@@ -9,15 +9,15 @@
 #include <chrono>
 #include <cstring>
 #include <ctime>
+#include <fcntl.h>
 #include <filesystem>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <iostream>
+#include <lodepng.h>
+#include <poll.h>
 #include <sstream>
 #include <thread>
-#include <fcntl.h>
-#include <poll.h>
 #include <unistd.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <lodepng.h>
 
 #include "../utils/logger.hpp"
 #include "../utils/utils.hpp"
@@ -39,21 +39,37 @@ static uint8_t START_TIME_PKT[PACKET_LENGTH] = {
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 static std::vector<uint8_t> processImageOrGif(const std::string &path) {
   GError *error = nullptr;
-  GdkPixbufAnimation *anim = gdk_pixbuf_animation_new_from_file(path.c_str(), &error);
+  GdkPixbufAnimation *anim =
+      gdk_pixbuf_animation_new_from_file(path.c_str(), &error);
   if (!anim) {
     std::string err = error ? error->message : "Desconocido";
-    if (error) g_error_free(error);
+    if (error)
+      g_error_free(error);
     throw std::runtime_error("No se pudo cargar la imagen: " + err);
   }
 
-  constexpr int TFT_W = 240;
-  constexpr int TFT_H = 135;
-  constexpr size_t FRAME_BYTES = TFT_W * TFT_H * 2;
-  constexpr size_t HEADER_BYTES = 256;
+  constexpr int TFT_W = TFT_WIDTH;
+  constexpr int TFT_H = TFT_HEIGHT;
+  constexpr size_t FRAME_BYTES = TFT_FRAME_BYTES;
+  constexpr size_t HEADER_BYTES = TFT_HEADER_BYTES;
 
   auto convertPixbufToRGB565 = [](GdkPixbuf *pixbuf) -> std::vector<uint8_t> {
-    GdkPixbuf *scaled = gdk_pixbuf_scale_simple(pixbuf, TFT_W, TFT_H, GDK_INTERP_BILINEAR);
-    if (!scaled) scaled = GDK_PIXBUF(g_object_ref(pixbuf));
+    int orig_w = gdk_pixbuf_get_width(pixbuf);
+    int orig_h = gdk_pixbuf_get_height(pixbuf);
+    GdkPixbuf *cropped = nullptr;
+    if (orig_w != orig_h) {
+      int side = std::min(orig_w, orig_h);
+      int src_x = (orig_w - side) / 2;
+      int src_y = (orig_h - side) / 2;
+      cropped = gdk_pixbuf_new_subpixbuf(pixbuf, src_x, src_y, side, side);
+    }
+    GdkPixbuf *src = cropped ? cropped : pixbuf;
+    GdkPixbuf *scaled =
+        gdk_pixbuf_scale_simple(src, TFT_W, TFT_H, GDK_INTERP_BILINEAR);
+    if (cropped)
+      g_object_unref(cropped);
+    if (!scaled)
+      scaled = GDK_PIXBUF(g_object_ref(src));
 
     int n_channels = gdk_pixbuf_get_n_channels(scaled);
     int rowstride = gdk_pixbuf_get_rowstride(scaled);
@@ -85,17 +101,19 @@ static std::vector<uint8_t> processImageOrGif(const std::string &path) {
   if (gdk_pixbuf_animation_is_static_image(anim)) {
     GdkPixbuf *staticPix = gdk_pixbuf_animation_get_static_image(anim);
     if (staticPix) {
-      frames.push_back({convertPixbufToRGB565(staticPix), 1});
+      frames.push_back({convertPixbufToRGB565(staticPix), 50});
     }
   } else {
     GTimeVal timeVal = {0, 0};
-    GdkPixbufAnimationIter *iter = gdk_pixbuf_animation_get_iter(anim, &timeVal);
+    GdkPixbufAnimationIter *iter =
+        gdk_pixbuf_animation_get_iter(anim, &timeVal);
     int maxFrames = 150;
     while (iter && (int)frames.size() < maxFrames) {
       GdkPixbuf *curPix = gdk_pixbuf_animation_iter_get_pixbuf(iter);
       int delayMs = gdk_pixbuf_animation_iter_get_delay_time(iter);
-      if (delayMs <= 0) delayMs = 50;
-      int delayUnits = std::max(1, std::min(255, delayMs / 2));
+      if (delayMs <= 0)
+        delayMs = 50;
+      int delayUnits = std::max(1, std::min(255, delayMs / 10));
       if (curPix) {
         frames.push_back({convertPixbufToRGB565(curPix), delayUnits});
       }
@@ -109,7 +127,8 @@ static std::vector<uint8_t> processImageOrGif(const std::string &path) {
         break;
       }
     }
-    if (iter) g_object_unref(iter);
+    if (iter)
+      g_object_unref(iter);
   }
   g_object_unref(anim);
 
@@ -178,7 +197,8 @@ bool AK820Pro::openHandle() {
     } else if (isWireless) {
       if (cur->interface_number == 4 || cur->usage_page == 0xff59) {
         cmdPathWireless = cur->path;
-      } else if (cmdPathWireless.empty() && (cur->interface_number == 3 || cur->usage_page == 0xff60)) {
+      } else if (cmdPathWireless.empty() &&
+                 (cur->interface_number == 3 || cur->usage_page == 0xff60)) {
         cmdPathWireless = cur->path;
       }
     }
@@ -194,8 +214,8 @@ bool AK820Pro::openHandle() {
       this->lastErrorMessage.clear();
       std::stringstream ss;
       ss << std::hex << foundPid;
-      Logger::getInstance().success(
-          "Conectado a Cable USB (PID 0x" + ss.str() + ") en " + this->activePath);
+      Logger::getInstance().success("Conectado a Cable USB (PID 0x" + ss.str() +
+                                    ") en " + this->activePath);
 
       if (!dispPathWired.empty()) {
         if (this->dispFd >= 0) {
@@ -205,10 +225,12 @@ bool AK820Pro::openHandle() {
         this->dispFd = ::open(dispPathWired.c_str(), O_RDWR | O_CLOEXEC);
         if (this->dispFd >= 0) {
           this->dispPath = dispPathWired;
-          Logger::getInstance().success("Canal de pantalla TFT abierto en " + this->dispPath);
+          Logger::getInstance().success("Canal de pantalla TFT abierto en " +
+                                        this->dispPath);
         } else {
           Logger::getInstance().warning(
-              "No se pudo abrir canal TFT en " + dispPathWired + " (errno: " + std::to_string(errno) + ")");
+              "No se pudo abrir canal TFT en " + dispPathWired +
+              " (errno: " + std::to_string(errno) + ")");
         }
       }
 
@@ -230,8 +252,8 @@ bool AK820Pro::openHandle() {
         this->dispFd = -1;
       }
       this->lastErrorMessage.clear();
-      Logger::getInstance().success(
-          "Conectado a 2.4GHz Dongle (0xfdfd) en " + this->activePath);
+      Logger::getInstance().success("Conectado a 2.4GHz Dongle (0xfdfd) en " +
+                                    this->activePath);
       hid_free_enumeration(devs);
       return true;
     }
@@ -354,7 +376,8 @@ std::future<void> AK820Pro::setModeAsync(const LightingMode mode,
                                          const Direction direction) const {
   auto promise = std::make_shared<std::promise<void>>();
   auto fut = promise->get_future();
-  std::thread([this, mode, r, g, b, rainbow, brightness, speed, direction, promise]() {
+  std::thread([this, mode, r, g, b, rainbow, brightness, speed, direction,
+               promise]() {
     try {
       this->setMode(mode, r, g, b, rainbow, brightness, speed, direction);
       promise->set_value();
@@ -542,9 +565,12 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
   }
 
   if (this->dispFd < 0) {
-    std::string err = this->wirelessMode
-        ? "La pantalla TFT solo puede actualizarse con el cable USB conectado (el modo 2.4G no soporta transferencia de pantalla)."
-        : "Canal de pantalla TFT (/dev/hidraw con usage_page 0xFF68) no disponible. Comprueba permisos udev.";
+    std::string err =
+        this->wirelessMode
+            ? "La pantalla TFT solo puede actualizarse con el cable USB "
+              "conectado (el modo 2.4G no soporta transferencia de pantalla)."
+            : "Canal de pantalla TFT (/dev/hidraw con usage_page 0xFF68) no "
+              "disponible. Comprueba permisos udev.";
     Logger::getInstance().error(err);
     throw std::runtime_error(err);
   }
@@ -552,13 +578,21 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
   Logger::getInstance().info("Procesando imagen/animación: " + path);
   std::vector<uint8_t> payload = processImageOrGif(path);
   uint8_t nFrames = payload[0];
-  Logger::getInstance().info("Fotogramas preparados: " + std::to_string(nFrames) +
-                             " (Total datos: " + std::to_string(payload.size()) + " bytes)");
+  Logger::getInstance().info(
+      "Fotogramas preparados: " + std::to_string(nFrames) +
+      " (Total datos: " + std::to_string(payload.size()) + " bytes)");
 
   uint16_t totalChunks = static_cast<uint16_t>(
       (payload.size() + IMAGE_CHUNK_SIZE - 1) / IMAGE_CHUNK_SIZE);
-  Logger::getInstance().info("Iniciando transferencia TFT en ranura " + std::to_string(slot) +
-                             " (" + std::to_string(totalChunks) + " bloques)...");
+  this->totalChunksCount = totalChunks;
+  this->currentChunk = 0;
+  this->uploadProgress = 0.0f;
+  this->uploading = true;
+  this->uploadStatusDetail = "Transfiriendo datos a la pantalla...";
+
+  Logger::getInstance().info("Iniciando transferencia TFT en ranura " +
+                             std::to_string(slot) + " (" +
+                             std::to_string(totalChunks) + " bloques)...");
 
   uint8_t cmdImage[PACKET_LENGTH] = {0};
   cmdImage[0] = COMMAND_PREFIX;
@@ -583,12 +617,15 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
 
     ssize_t written = ::write(this->dispFd, chunk_buf, sizeof(chunk_buf));
     if (written < 0) {
-      std::string err = "Error escribiendo bloque " + std::to_string(i + 1) + " en el canal de pantalla.";
+      this->uploading = false;
+      std::string err = "Error escribiendo bloque " + std::to_string(i + 1) +
+                        " en el canal de pantalla.";
+      this->uploadStatusDetail = err;
       Logger::getInstance().error(err);
       throw std::runtime_error(err);
     }
 
-    struct pollfd pfd = { this->dispFd, POLLIN, 0 };
+    struct pollfd pfd = {this->dispFd, POLLIN, 0};
     int pRet = ::poll(&pfd, 1, 300);
     if (pRet > 0) {
       uint8_t ackBuf[64];
@@ -596,14 +633,39 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
       (void)rBytes;
     }
 
+    this->currentChunk = i + 1;
+    this->uploadProgress = static_cast<float>(i + 1) / totalChunks;
+
     if ((i + 1) % 4 == 0 || i + 1 == totalChunks) {
-      Logger::getInstance().info("Bloque " + std::to_string(i + 1) + "/" +
-                                 std::to_string(totalChunks) + " transferido.");
+      Logger::getInstance().info(
+          "Bloque " + std::to_string(i + 1) + "/" +
+          std::to_string(totalChunks) + " transferido (" +
+          std::to_string(static_cast<int>(this->uploadProgress * 100)) + "%).");
     }
   }
 
   this->sendPacket(SAVE_PKT);
-  Logger::getInstance().success("Imagen cargada y guardada exitosamente en la pantalla TFT.");
+  this->uploadProgress = 1.0f;
+  this->uploading = false;
+  this->uploadStatusDetail =
+      "Imagen cargada y guardada exitosamente en la pantalla TFT.";
+
+  // Cache to local gallery so user can view and reapply their uploaded images
+  try {
+    const char *home = secure_getenv("HOME");
+    if (home) {
+      std::string galDir = std::string(home) + "/.config/ak820proLED/gallery";
+      std::filesystem::create_directories(galDir);
+      std::filesystem::path srcP(path);
+      std::string destP = galDir + "/slot" + std::to_string(slot) + "_" +
+                          srcP.filename().string();
+      std::filesystem::copy_file(
+          srcP, destP, std::filesystem::copy_options::overwrite_existing);
+    }
+  } catch (...) {
+  }
+
+  Logger::getInstance().success(this->uploadStatusDetail);
 }
 
 std::future<void> AK820Pro::uploadImageToLCDAsync(const std::string &path,

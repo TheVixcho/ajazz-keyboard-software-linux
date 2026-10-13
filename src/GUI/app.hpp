@@ -22,6 +22,7 @@ public:
         MACROS,
         TFT_SCREEN,
         THEME,
+        CONFIG,
         DEVICE,
         LOGS
     };
@@ -42,6 +43,7 @@ private:
     void TFTScreenWindow();
     void MacrosWindow();
     void ThemeEditorWindow();
+    void ConfigWindow();
     void DeviceStatusWindow();
     void LogsWindow();
 

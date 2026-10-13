@@ -3,6 +3,7 @@
 //
 
 #include "../../constants.hpp"
+#include "../../utils/i18n.hpp"
 #include "../app.hpp"
 #include <imgui.h>
 #include <iostream>
@@ -30,17 +31,17 @@ void AjazzGUI::IndividualLEDsWindow() {
     initializedKeys = true;
   }
 
-  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f),
-                     "Editor de LEDs Individuales (Per-Key RGB)");
+  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f), "%s",
+                     tr("leds_title"));
   ImGui::Separator();
   ImGui::Spacing();
 
-  ImGui::Text("Color del Pincel:");
+  ImGui::Text("%s", tr("leds_brush_color"));
   ImGui::SameLine();
   ImGui::ColorEdit3("##BrushColor", brushColor, ImGuiColorEditFlags_NoAlpha);
 
   ImGui::SameLine(0, 20);
-  if (ImGui::Button("WASD")) {
+  if (ImGui::Button(tr("leds_btn_wasd"))) {
     uint8_t wasd[] = {17, 30, 31, 32}; // W, A, S, D positions
     for (uint8_t idx : wasd) {
       keyColorsRGB[idx][0] = brushColor[0];
@@ -49,7 +50,7 @@ void AjazzGUI::IndividualLEDsWindow() {
     }
   }
   ImGui::SameLine(0, 6);
-  if (ImGui::Button("Flechas")) {
+  if (ImGui::Button(tr("leds_btn_arrows"))) {
     uint8_t arrows[] = {57, 72, 73, 74};
     for (uint8_t idx : arrows) {
       keyColorsRGB[idx][0] = brushColor[0];
@@ -58,7 +59,7 @@ void AjazzGUI::IndividualLEDsWindow() {
     }
   }
   ImGui::SameLine(0, 6);
-  if (ImGui::Button("Todo")) {
+  if (ImGui::Button(tr("leds_btn_all"))) {
     for (int i = 0; i < 144; i++) {
       keyColorsRGB[i][0] = brushColor[0];
       keyColorsRGB[i][1] = brushColor[1];
@@ -66,7 +67,7 @@ void AjazzGUI::IndividualLEDsWindow() {
     }
   }
   ImGui::SameLine(0, 6);
-  if (ImGui::Button("Apagar Todo")) {
+  if (ImGui::Button(tr("leds_btn_off"))) {
     for (int i = 0; i < 144; i++) {
       keyColorsRGB[i][0] = 0.0f;
       keyColorsRGB[i][1] = 0.0f;
@@ -198,7 +199,7 @@ void AjazzGUI::IndividualLEDsWindow() {
   ImGui::Separator();
   ImGui::Spacing();
 
-  if (ImGui::Button("Aplicar al Teclado", ImVec2(200, 42))) {
+  if (ImGui::Button(tr("btn_apply_individual_leds"), ImVec2(220, 42))) {
     try {
       std::vector<AK820Pro::KeyColor> keyColors;
       for (int i = 0; i < 144; i++) {
@@ -209,9 +210,9 @@ void AjazzGUI::IndividualLEDsWindow() {
       }
 
       GetKeyboard()->setPerKeyRGBAsync(keyColors);
-      statusMessage = "LEDs individuales enviados exitosamente al teclado.";
+      statusMessage = tr("leds_success");
     } catch (const std::exception &e) {
-      statusMessage = "Error enviando LEDs: " + std::string(e.what());
+      statusMessage = std::string(tr("leds_error")) + e.what();
     }
   }
 

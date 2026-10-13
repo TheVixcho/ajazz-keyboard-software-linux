@@ -3,6 +3,7 @@
 //
 
 #include "../../utils/logger.hpp"
+#include "../../utils/i18n.hpp"
 #include "../app.hpp"
 #include <imgui.h>
 #include <string>
@@ -12,31 +13,31 @@ static bool autoScroll = true;
 static bool copiedLogs = false;
 
 void AjazzGUI::LogsWindow() {
-  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f),
-                     "Registro de Eventos y Diagnóstico de Errores (Logs)");
+  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f), "%s",
+                     tr("logs_title"));
   ImGui::Separator();
   ImGui::Spacing();
 
   // Toolbar buttons
-  if (ImGui::Button("Copiar Todos los Logs", ImVec2(180, 34))) {
+  if (ImGui::Button(tr("btn_copy_all_logs"), ImVec2(180, 34))) {
     std::string allLogs = Logger::getInstance().getAllText();
     ImGui::SetClipboardText(allLogs.c_str());
     copiedLogs = true;
   }
 
   ImGui::SameLine(0, 10);
-  if (ImGui::Button("Limpiar Logs", ImVec2(120, 34))) {
+  if (ImGui::Button(tr("btn_clear_logs"), ImVec2(120, 34))) {
     Logger::getInstance().clear();
     copiedLogs = false;
   }
 
   ImGui::SameLine(0, 15);
-  ImGui::Checkbox("Desplazamiento Automático", &autoScroll);
+  ImGui::Checkbox(tr("logs_auto_scroll"), &autoScroll);
 
   if (copiedLogs) {
     ImGui::SameLine(0, 15);
-    ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.4f, 1.0f),
-                       "Logs copiados al portapapeles con exito.");
+    ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.4f, 1.0f), "%s",
+                       tr("logs_copied_msg"));
   }
 
   ImGui::Spacing();
@@ -50,7 +51,7 @@ void AjazzGUI::LogsWindow() {
 
   auto entries = Logger::getInstance().getEntries();
   if (entries.empty()) {
-    ImGui::TextDisabled("No hay eventos registrados aún.");
+    ImGui::TextDisabled("%s", tr("logs_empty"));
   } else {
     for (const auto &entry : entries) {
       ImVec4 color = ImVec4(0.75f, 0.80f, 0.88f, 1.00f);

@@ -9,6 +9,7 @@
 #include "../backends/imgui_impl_opengl3.h"
 #include "../constants.hpp"
 #include "../utils/logger.hpp"
+#include "../utils/i18n.hpp"
 #include <cstdlib>
 #include <imgui.h>
 #include <iostream>
@@ -145,22 +146,22 @@ void AjazzGUI::renderTopToolbar() {
 
   ImGui::SetCursorPosY(8);
   ImGui::SetCursorPosX(12);
-
-  renderTabButton("Modos LED", Tab::LIGHTING);
-  renderTabButton("LEDs Individuales", Tab::INDIVIDUAL_LEDS);
-  renderTabButton("Macros", Tab::MACROS);
-  renderTabButton("Pantalla TFT", Tab::TFT_SCREEN);
-  renderTabButton("Tema UI", Tab::THEME);
-  renderTabButton("Estado USB", Tab::DEVICE);
-  renderTabButton("Logs", Tab::LOGS);
+  renderTabButton(tr("tab_lighting"), Tab::LIGHTING);
+  renderTabButton(tr("tab_individual_leds"), Tab::INDIVIDUAL_LEDS);
+  renderTabButton(tr("tab_macros"), Tab::MACROS);
+  renderTabButton(tr("tab_tft_screen"), Tab::TFT_SCREEN);
+  renderTabButton(tr("tab_theme"), Tab::THEME);
+  renderTabButton(tr("tab_settings"), Tab::CONFIG);
+  renderTabButton(tr("tab_device_status"), Tab::DEVICE);
+  renderTabButton(tr("tab_logs"), Tab::LOGS);
 
   // Right-aligned status badge
   bool connected = GetKeyboard() && GetKeyboard()->isConnected();
   bool wireless = GetKeyboard() && GetKeyboard()->isWireless();
 
   std::string statusText = connected
-                               ? (wireless ? "2.4GHz Dongle" : "Cable USB")
-                               : "Desconectado";
+                               ? (wireless ? tr("status_dongle") : tr("status_usb_cable"))
+                               : tr("status_disconnected");
   ImVec4 statusColor = connected ? ImVec4(0.25f, 0.85f, 0.45f, 1.00f)
                                  : ImVec4(0.90f, 0.35f, 0.35f, 1.00f);
 
@@ -180,7 +181,7 @@ void AjazzGUI::renderTopToolbar() {
 
     ImGui::SameLine(0, 10);
     ImGui::SetCursorPosY(9);
-    if (ImGui::Button("Reconectar##Top", ImVec2(90, 32))) {
+    if (ImGui::Button(tr("btn_reconnect"), ImVec2(100, 32))) {
       if (GetKeyboard()) {
         Logger::getInstance().info("Reconectando desde barra superior...");
         bool res = GetKeyboard()->openHandle();
@@ -234,6 +235,9 @@ void AjazzGUI::render() {
     break;
   case Tab::THEME:
     this->ThemeEditorWindow();
+    break;
+  case Tab::CONFIG:
+    this->ConfigWindow();
     break;
   case Tab::DEVICE:
     this->DeviceStatusWindow();

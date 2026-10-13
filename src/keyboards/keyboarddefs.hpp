@@ -32,8 +32,8 @@ constexpr uint8_t READ_PERKEY_COMMAND = 0xf5;
 constexpr uint8_t PACKET_LENGTH = 64;
 constexpr uint8_t RESPONSE_PACKET_LENGTH = 64;
 constexpr uint16_t IMAGE_CHUNK_SIZE = 4096;
-constexpr uint32_t TFT_WIDTH = 240;
-constexpr uint32_t TFT_HEIGHT = 135;
+constexpr uint32_t TFT_WIDTH = 128;
+constexpr uint32_t TFT_HEIGHT = 128;
 constexpr uint32_t TFT_FRAME_BYTES = TFT_WIDTH * TFT_HEIGHT * 2;
 constexpr uint32_t TFT_HEADER_BYTES = 256;
 

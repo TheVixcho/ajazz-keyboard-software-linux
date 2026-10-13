@@ -5,11 +5,11 @@
 
 #include "../app.hpp"
 #include <future>
-
 #include <imgui.h>
 #include <iostream>
 
 #include "../../constants.hpp"
+#include "../../utils/i18n.hpp"
 #include "../../utils/rgb.hpp"
 
 static int selectedMode = 1;
@@ -32,17 +32,17 @@ void AjazzGUI::changeMode() {
 
     GetKeyboard()->setSleepTimeAsync(GetConfig()->sleep_delay);
   } catch (const std::exception &e) {
-    std::cerr << "Error aplicando modo: " << e.what() << std::endl;
+    std::cerr << "Error: " << e.what() << std::endl;
   }
 }
 
 void AjazzGUI::ModeWindow() {
-  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f),
-                     "Configuración de Iluminación RGB");
+  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f), "%s",
+                     tr("mode_title"));
   ImGui::Separator();
   ImGui::Spacing();
 
-  ImGui::Text("Modo de Iluminación:");
+  ImGui::Text("%s", tr("mode_lighting_mode"));
   int col = 0;
   for (const auto &[mode, name] : LIGHT_MODES) {
     if (ImGui::RadioButton(name, &selectedMode, mode)) {
@@ -58,12 +58,12 @@ void AjazzGUI::ModeWindow() {
   ImGui::Separator();
   ImGui::Spacing();
 
-  ImGui::Text("Color y Opciones:");
-  ImGui::Checkbox("Modo Arcoíris (Multicolor)", &GetConfig()->rainbow);
+  ImGui::Text("%s", tr("mode_static_color"));
+  ImGui::Checkbox(tr("mode_rainbow"), &GetConfig()->rainbow);
 
   if (!GetConfig()->rainbow) {
     ImGui::SameLine(0, 20);
-    ImGui::ColorEdit3("Color Estático##Picker", GetConfig()->keyboard_rgb,
+    ImGui::ColorEdit3("##Picker", GetConfig()->keyboard_rgb,
                       ImGuiColorEditFlags_NoAlpha);
   }
 
@@ -71,15 +71,15 @@ void AjazzGUI::ModeWindow() {
   ImGui::Separator();
   ImGui::Spacing();
 
-  ImGui::Text("Ajustes de Velocidad y Brillo:");
-  ImGui::SliderInt("Brillo", &GetConfig()->brightness, 0, MAX_BRIGHTNESS);
-  ImGui::SliderInt("Velocidad", &GetConfig()->speed, 0, MAX_SPEED);
+  ImGui::SliderInt(tr("mode_brightness"), &GetConfig()->brightness, 0,
+                   MAX_BRIGHTNESS);
+  ImGui::SliderInt(tr("mode_speed"), &GetConfig()->speed, 0, MAX_SPEED);
 
   ImGui::Dummy(ImVec2(0, 12));
   ImGui::Separator();
   ImGui::Spacing();
 
-  ImGui::Text("Tiempo de Suspensión (Auto-Sleep):");
+  ImGui::Text("%s", tr("mode_sleep_time"));
   int sCol = 0;
   for (const auto &[mode, mode_name] : SLEEP_DELAY) {
     if (ImGui::RadioButton(mode_name, &selectedTime, mode)) {
@@ -95,7 +95,7 @@ void AjazzGUI::ModeWindow() {
     ImGui::Dummy(ImVec2(0, 12));
     ImGui::Separator();
     ImGui::Spacing();
-    ImGui::Text("Dirección de la Animación:");
+    ImGui::Text("%s", tr("mode_direction"));
     const auto &directions = DIRECTIONS_PER_MODE.at(GetConfig()->mode);
     for (size_t i = 0; i < directions.size(); i++) {
       auto dir = directions[i];
@@ -109,7 +109,7 @@ void AjazzGUI::ModeWindow() {
   }
 
   ImGui::Dummy(ImVec2(0, 16));
-  if (ImGui::Button("Aplicar Iluminación", ImVec2(180, 40))) {
+  if (ImGui::Button(tr("btn_apply_lighting"), ImVec2(200, 40))) {
     this->changeMode();
   }
 }
