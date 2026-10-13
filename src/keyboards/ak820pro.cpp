@@ -237,7 +237,8 @@ bool AK820Pro::openHandle() {
     }
   }
 
-  // Also open Wireless 2.4G dongle if present (covers both USB switch positions)
+  // Also open Wireless 2.4G dongle if present (covers both USB switch
+  // positions)
   if (!cmdPathWireless.empty()) {
     this->wirelessHandle = hid_open_path(cmdPathWireless.c_str());
     if (this->wirelessHandle) {
@@ -298,8 +299,7 @@ std::string AK820Pro::getConnectionStatus() const {
   if (this->handle && this->wirelessHandle) {
     return "Conectado (Cable USB + Dongle 2.4G)";
   }
-  return this->handle ? "Conectado (Cable USB)"
-                      : "Conectado (2.4GHz Dongle)";
+  return this->handle ? "Conectado (Cable USB)" : "Conectado (2.4GHz Dongle)";
 }
 
 std::string AK820Pro::getLastError() const { return this->lastErrorMessage; }
@@ -315,11 +315,13 @@ bool AK820Pro::sendPacket(const uint8_t *payload64) const {
   bool ok = false;
   if (this->handle) {
     int res = hid_send_feature_report(this->handle, report, 65);
-    if (res >= 0) ok = true;
+    if (res >= 0)
+      ok = true;
   }
   if (this->wirelessHandle) {
     int res = hid_send_feature_report(this->wirelessHandle, report, 65);
-    if (res >= 0) ok = true;
+    if (res >= 0)
+      ok = true;
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(40));
@@ -363,8 +365,8 @@ void AK820Pro::setModeUnlocked(const LightingMode mode, const uint8_t r,
       "Aplicando modo LED " + std::to_string(mode) +
       " (R:" + std::to_string(r) + " G:" + std::to_string(g) +
       " B:" + std::to_string(b) + ", Brillo: " + std::to_string(bClamped) +
-      ", Vel: " + std::to_string(sClamped) + ", Arcoíris: " +
-      std::string(rainbow ? "Sí" : "No") + ")");
+      ", Vel: " + std::to_string(sClamped) +
+      ", Arcoíris: " + std::string(rainbow ? "Sí" : "No") + ")");
 
   ModePacket packet{};
   memset(&packet, 0, sizeof(packet));
