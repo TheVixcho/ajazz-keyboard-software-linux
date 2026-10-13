@@ -1,6 +1,7 @@
 //
-// Created by taxmachine on 16/02/25.
-// Modified by Vixcho on 13/10/26.
+// OpenKeys - Open source keyboard control utility
+// Originally based on TaxMachine's research, enhanced by Vixcho
+// Incorporating transport architecture from Geovane2dd/Ajazzy
 //
 
 #ifndef AJAZZ_HPP
@@ -11,29 +12,28 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <cstdint>
 #include <hidapi/hidapi.h>
 
 #include "keyboarddefs.hpp"
 
 class AK820Pro {
-    struct ModePacket {
-        uint8_t mode;
-        uint8_t r;
-        uint8_t g;
-        uint8_t b;
-        uint32_t padding;
-        struct {
-            bool rainbow;
-            uint8_t brightness;
-            uint8_t speed;
-            uint8_t direction;
-        } options;
-        uint16_t padding1;
-        uint16_t delimiter;
-        uint8_t additional_data[48];
+public:
+    struct __attribute__((packed)) ModePacket {
+        uint8_t mode;        // 0
+        uint8_t r;           // 1
+        uint8_t g;           // 2
+        uint8_t b;           // 3
+        uint8_t padding[4];  // 4..7
+        uint8_t rainbow;     // 8
+        uint8_t brightness;  // 9
+        uint8_t speed;       // 10
+        uint8_t direction;   // 11
+        uint8_t reserved[50];// 12..61
+        uint8_t delimiter_lo;// 62 (0x55)
+        uint8_t delimiter_hi;// 63 (0xAA)
     };
 
-public:
     struct KeyColor {
         uint8_t keyIndex;
         uint8_t r;
@@ -117,9 +117,9 @@ private:
     mutable bool wirelessMode = false;
     mutable std::string lastErrorMessage;
 
-    void executeHIDCommand(const std::vector<uint8_t*>& commands) const;
-    bool sendFeatureReport(const uint8_t* data, size_t len) const;
-    bool getFeatureReport(uint8_t* data, size_t len) const;
+    bool sendPacket(const uint8_t* payload64) const;
 };
+
+static_assert(sizeof(AK820Pro::ModePacket) == 64, "ModePacket must be exactly 64 bytes");
 
 #endif //AJAZZ_HPP

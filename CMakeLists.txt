@@ -25,5 +25,4 @@ file(GLOB_RECURSE LODEPNG_SOURCES lodepng/src/**)
 include_directories(imgui/include lodepng/include ${GTK_INCLUDE_DIRS} ${HIDAPI_INCLUDE_DIRS})
 
 add_executable(ak820proLED ${SOURCES} ${IMGUI_SOURCES} ${LODEPNG_SOURCES})
-
 target_link_libraries(ak820proLED PRIVATE ${HIDAPI_LIBRARIES} OpenGL::GL glfw ${GTK_LIBRARIES})

@@ -13,6 +13,7 @@
 
 constexpr uint16_t AJAZZ_VID = 0x0c45;
 constexpr uint16_t AK820PRO_PID = 0x8009;
+constexpr uint16_t AK820PRO_PID_ALT = 0x800a;
 constexpr uint16_t AK820PRO_PID_WIRELESS = 0xfdfd;
 
 constexpr uint8_t COMMAND_PREFIX = 0x04;

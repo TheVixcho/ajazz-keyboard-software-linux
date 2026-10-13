@@ -1,5 +1,3 @@
-# Ajazz AK820 Pro udev rules (Wired & 2.4G Wireless Dongle)
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="8009", MODE="0666", TAG+="uaccess"
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="fdfd", MODE="0666", TAG+="uaccess"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="8009", MODE="0666", TAG+="uaccess"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="fdfd", MODE="0666", TAG+="uaccess"
+# Ajazz AK820 Pro udev rules (Wired 0x8009, 0x800a & 2.4G Wireless Dongle 0xfdfd)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", MODE="0666", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0c45", MODE="0666", TAG+="uaccess"
