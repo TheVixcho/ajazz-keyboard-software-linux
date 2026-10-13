@@ -170,16 +170,34 @@ private:
         "Ruta del archivo (PNG, JPG, GIF)");
     add("btn_browse", "Browse...", "Examinar...");
     add("tft_slot", "Storage Slot", "Ranura de Almacenamiento");
-    add("slot_1", "Slot 1 (Custom Image)", "Ranura 1 (Personalizada)");
-    add("slot_2", "Slot 2 (Alternate)", "Ranura 2 (Alternativa)");
-    add("slot_3", "Slot 3 (Alternate)", "Ranura 3 (Alternativa)");
+    add("slot_1", "Slot 1 (Hardware Screen)", "Ranura 1 (Memoria de Pantalla)");
+    add("tft_slot_info",
+        "Note: The AK820 Pro hardware features 1 internal flash slot for "
+        "custom animations. You can save multiple presets in the local gallery "
+        "below.",
+        "Nota: El hardware del AK820 Pro dispone de 1 ranura en memoria para "
+        "tu imagen/animación. Puedes guardar múltiples imágenes en tu galería "
+        "local.");
     add("btn_upload_tft", "Upload to TFT Screen", "Subir a Pantalla TFT");
     add("tft_preview_title", "Image & Frame Preview (128x128):",
         "Vista Previa de la Imagen (128x128):");
     add("tft_uploading", "Uploading chunks to screen...",
         "Transfiriendo bloques a la pantalla...");
-    add("tft_upload_success", "Upload complete! Image saved to TFT screen.",
-        "¡Carga completada! Imagen guardada en la pantalla TFT.");
+    add("tft_upload_success",
+        "Upload complete! Image saved to TFT screen. Press FN + Del on your "
+        "keyboard to display it.",
+        "¡Carga completada! Imagen guardada en la pantalla TFT. Presiona FN + "
+        "Del en tu teclado para mostrarla.");
+    add("tft_view_guide_title",
+        "How to view your animation on the keyboard screen:",
+        "Cómo ver la animación en la pantalla del teclado:");
+    add("tft_view_guide_desc",
+        "Press FN + Del on your keyboard to switch between the clock screen "
+        "and your custom animation. You can also press and hold the rotary "
+        "knob to open the TFT screen menu.",
+        "Presiona el atajo FN + Del en tu teclado para alternar entre el reloj "
+        "y tu animación. También puedes mantener presionada la rueda giratoria "
+        "(Knob) para abrir el menú TFT.");
     add("tft_upload_failed", "Upload failed: %s", "Error al subir imagen: %s");
     add("tft_progress", "Progress: %d / %d chunks (%.0f%%)",
         "Progreso: %d / %d bloques (%.0f%%)");
@@ -200,6 +218,7 @@ private:
         "galería inferior guarda tus imágenes localmente para que puedas "
         "previsualizarlas y volver a cargarlas en cualquier momento.");
     add("btn_load_preset", "Apply This Image", "Cargar Esta Imagen");
+    add("btn_delete_preset", "Delete", "Eliminar");
 
     // Settings Window
     add("settings_title", "Application Settings & Preferences",
@@ -218,6 +237,21 @@ private:
     add("btn_save_settings", "Save Configuration", "Guardar Configuración");
     add("settings_saved_msg", "Configuration saved successfully to disk.",
         "Configuración guardada exitosamente en el disco.");
+    add("settings_changelog_title", "Version History & Patch Notes",
+        "Historial de Versiones y Parches");
+    add("settings_changelog_desc",
+        "Record of releases, Linux HID protocol adaptations, and driver "
+        "improvements.",
+        "Registro de versiones, adaptaciones del protocolo HID en Linux y "
+        "mejoras del controlador.");
+    add("changelog_v002_title",
+        "Version 0.0.2 - Hotfixes, TFT Reliability & Quality of Life (Latest)",
+        "Versión 0.0.2 - Hotfixes, Estabilidad TFT y Mejoras de Calidad de "
+        "Vida (Actual)");
+    add("changelog_v001_title",
+        "Version 0.0.1 - Initial Linux Port & Protocol Adaptations (Fork)",
+        "Versión 0.0.1 - Fork Inicial y Adaptaciones del Protocolo Linux "
+        "(Base)");
 
     // Lighting Window
     add("mode_title", "RGB Lighting Configuration",

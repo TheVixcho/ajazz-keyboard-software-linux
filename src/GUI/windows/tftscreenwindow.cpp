@@ -195,9 +195,10 @@ void AjazzGUI::TFTScreenWindow() {
     gtk_widget_destroy(dialog);
   }
 
-  ImGui::SetNextItemWidth(260);
-  const char *slotNames[] = {tr("slot_1"), tr("slot_2"), tr("slot_3")};
-  ImGui::Combo(tr("tft_slot"), &selectedSlot, slotNames, 3);
+  ImGui::SetNextItemWidth(300);
+  const char *slotNames[] = {tr("slot_1")};
+  ImGui::Combo(tr("tft_slot"), &selectedSlot, slotNames, 1);
+  ImGui::TextDisabled("%s", tr("tft_slot_info"));
 
   // Live Preview of selected image
   if (previewTexture != 0) {
@@ -251,7 +252,7 @@ void AjazzGUI::TFTScreenWindow() {
           if (!GetKeyboard()->isConnected()) {
             GetKeyboard()->openHandle();
           }
-          GetKeyboard()->uploadImageToLCDAsync(imagePathBuf, selectedSlot + 1);
+          GetKeyboard()->uploadImageToLCDAsync(imagePathBuf, 1);
           tftStatusMessage = tr("tft_uploading");
         } catch (const std::exception &e) {
           tftStatusMessage = std::string("Error: ") + e.what();
@@ -269,6 +270,15 @@ void AjazzGUI::TFTScreenWindow() {
                                 : ImVec4(0.95f, 0.35f, 0.35f, 1.00f);
     ImGui::TextColored(msgColor, "%s", tftStatusMessage.c_str());
   }
+
+  ImGui::Spacing();
+  ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.30f, 0.65f, 0.90f, 0.60f));
+  ImGui::BeginChild("##TFTViewHint", ImVec2(0, 54), true);
+  ImGui::TextColored(ImVec4(0.40f, 0.85f, 1.00f, 1.0f), "💡 %s",
+                     tr("tft_view_guide_title"));
+  ImGui::TextWrapped("%s", tr("tft_view_guide_desc"));
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
 
   ImGui::Dummy(ImVec2(0, 14));
   ImGui::Separator();
@@ -297,7 +307,7 @@ void AjazzGUI::TFTScreenWindow() {
 
       ImGui::BeginGroup();
       ImGui::Text("%s", galleryItems[i].filename.c_str());
-      if (ImGui::Button(tr("btn_load_preset"), ImVec2(150, 28))) {
+      if (ImGui::Button(tr("btn_load_preset"), ImVec2(140, 28))) {
         strncpy(imagePathBuf, galleryItems[i].path.c_str(),
                 sizeof(imagePathBuf) - 1);
         if (previewTexture != 0)
@@ -305,6 +315,36 @@ void AjazzGUI::TFTScreenWindow() {
         previewTexture = createTextureFromPath(imagePathBuf);
         loadedPreviewPath = imagePathBuf;
       }
+      ImGui::SameLine();
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.20f, 0.20f, 1.0f));
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.25f, 0.25f, 1.0f));
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.95f, 0.30f, 0.30f, 1.0f));
+      if (ImGui::Button(tr("btn_delete_preset"), ImVec2(90, 28))) {
+        try {
+          if (std::filesystem::exists(galleryItems[i].path)) {
+            std::filesystem::remove(galleryItems[i].path);
+          }
+          if (loadedPreviewPath == galleryItems[i].path) {
+            if (previewTexture != 0) {
+              glDeleteTextures(1, &previewTexture);
+              previewTexture = 0;
+            }
+            loadedPreviewPath.clear();
+            imagePathBuf[0] = '\0';
+          }
+          Logger::getInstance().info("Elemento eliminado de la galería: " +
+                                     galleryItems[i].filename);
+          refreshGallery();
+          ImGui::PopStyleColor(3);
+          ImGui::EndGroup();
+          ImGui::PopID();
+          break;
+        } catch (const std::exception &e) {
+          Logger::getInstance().error("Error eliminando archivo: " +
+                                      std::string(e.what()));
+        }
+      }
+      ImGui::PopStyleColor(3);
       ImGui::EndGroup();
 
       ImGui::Separator();

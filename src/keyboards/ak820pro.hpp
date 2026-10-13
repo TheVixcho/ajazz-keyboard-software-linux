@@ -127,7 +127,7 @@ private:
   uint16_t pid;
   mutable hid_device *handle = nullptr;
   mutable hid_device *wirelessHandle = nullptr;
-  mutable std::mutex hidMutex;
+  mutable std::recursive_mutex hidMutex;
   mutable int dispFd = -1;
   mutable std::string activePath;
   mutable std::string dispPath;

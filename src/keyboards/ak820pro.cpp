@@ -101,7 +101,7 @@ static std::vector<uint8_t> processImageOrGif(const std::string &path) {
   if (gdk_pixbuf_animation_is_static_image(anim)) {
     GdkPixbuf *staticPix = gdk_pixbuf_animation_get_static_image(anim);
     if (staticPix) {
-      frames.push_back({convertPixbufToRGB565(staticPix), 50});
+      frames.push_back({convertPixbufToRGB565(staticPix), 1});
     }
   } else {
     GTimeVal timeVal = {0, 0};
@@ -113,7 +113,7 @@ static std::vector<uint8_t> processImageOrGif(const std::string &path) {
       int delayMs = gdk_pixbuf_animation_iter_get_delay_time(iter);
       if (delayMs <= 0)
         delayMs = 50;
-      int delayUnits = std::max(1, std::min(255, delayMs / 10));
+      int delayUnits = std::max(1, std::min(255, delayMs / 2));
       if (curPix) {
         frames.push_back({convertPixbufToRGB565(curPix), delayUnits});
       }
@@ -161,7 +161,7 @@ AK820Pro::~AK820Pro() {
 }
 
 bool AK820Pro::openHandle() {
-  std::lock_guard<std::mutex> lock(this->hidMutex);
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
   if (this->handle || this->wirelessHandle) {
     return true;
   }
@@ -265,7 +265,7 @@ bool AK820Pro::openHandle() {
 }
 
 void AK820Pro::closeHandle() {
-  std::lock_guard<std::mutex> lock(this->hidMutex);
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
   if (this->dispFd >= 0) {
     ::close(this->dispFd);
     this->dispFd = -1;
@@ -399,7 +399,7 @@ void AK820Pro::setMode(const LightingMode mode, const uint8_t r,
                        const uint8_t g, const uint8_t b, const bool rainbow,
                        const int brightness, const int speed,
                        const Direction direction) const {
-  std::lock_guard<std::mutex> lock(this->hidMutex);
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
   this->setModeUnlocked(mode, r, g, b, rainbow, brightness, speed, direction);
 }
 
@@ -429,7 +429,7 @@ void AK820Pro::applyLighting(const LightingMode mode, const uint8_t r,
                              const bool rainbow, const int brightness,
                              const int speed, const Direction direction,
                              const LightSleepTime sleep_delay) const {
-  std::lock_guard<std::mutex> lock(this->hidMutex);
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
   this->setModeUnlocked(mode, r, g, b, rainbow, brightness, speed, direction);
   if (sleep_delay != NONE) {
     this->setSleepTimeUnlocked(sleep_delay);
@@ -550,7 +550,7 @@ void AK820Pro::setSleepTimeUnlocked(const LightSleepTime sleep_time) const {
 }
 
 void AK820Pro::setSleepTime(const LightSleepTime sleep_time) const {
-  std::lock_guard<std::mutex> lock(this->hidMutex);
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
   this->setSleepTimeUnlocked(sleep_time);
 }
 
@@ -572,7 +572,7 @@ AK820Pro::setSleepTimeAsync(const LightSleepTime sleep_time) const {
 }
 
 void AK820Pro::syncClock(int slot) const {
-  std::lock_guard<std::mutex> lock(this->hidMutex);
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
   if (!this->handle && !this->wirelessHandle &&
       !const_cast<AK820Pro *>(this)->openHandle()) {
     std::string err =
@@ -629,6 +629,15 @@ std::future<void> AK820Pro::syncClockAsync(int slot) const {
 }
 
 void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
+  std::lock_guard<std::recursive_mutex> lock(this->hidMutex);
+
+  // The AK820 Pro hardware only features 1 user animation slot (Slot 1)
+  int targetSlot = 1;
+  if (slot != 1) {
+    Logger::getInstance().warning(
+        "El AK820 Pro dispone de 1 ranura en hardware para imagen personalizada. Redirigiendo a ranura 1.");
+  }
+
   if (!std::filesystem::exists(path)) {
     std::string err = "El archivo no existe: " + path;
     Logger::getInstance().error(err);
@@ -669,18 +678,21 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
   this->uploadStatusDetail = "Transfiriendo datos a la pantalla...";
 
   Logger::getInstance().info("Iniciando transferencia TFT en ranura " +
-                             std::to_string(slot) + " (" +
+                             std::to_string(targetSlot) + " (" +
                              std::to_string(totalChunks) + " bloques)...");
 
   uint8_t cmdImage[PACKET_LENGTH] = {0};
   cmdImage[0] = COMMAND_PREFIX;
   cmdImage[1] = IMAGE_COMMAND;
-  cmdImage[2] = static_cast<uint8_t>(slot);
+  cmdImage[2] = static_cast<uint8_t>(targetSlot);
   cmdImage[8] = static_cast<uint8_t>(totalChunks & 0xFF);
   cmdImage[9] = static_cast<uint8_t>((totalChunks >> 8) & 0xFF);
 
+  // Synchronize transaction with keyboard MCU
   this->sendPacket(START_PKT);
+  this->handshake();
   this->sendPacket(cmdImage);
+  this->handshake();
 
   uint8_t chunk_buf[1 + IMAGE_CHUNK_SIZE];
   chunk_buf[0] = 0x00; // report ID 0
@@ -722,11 +734,14 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
     }
   }
 
+  // Finalize and commit transaction to flash memory
   this->sendPacket(SAVE_PKT);
+  this->handshake();
+
   this->uploadProgress = 1.0f;
   this->uploading = false;
   this->uploadStatusDetail =
-      "Imagen cargada y guardada exitosamente en la pantalla TFT.";
+      "Imagen cargada exitosamente. Presiona FN + Del en el teclado para verla.";
 
   try {
     const char *home = secure_getenv("HOME");
@@ -734,7 +749,7 @@ void AK820Pro::uploadImageToLCD(const std::string &path, int slot) const {
       std::string galDir = std::string(home) + "/.config/ak820proLED/gallery";
       std::filesystem::create_directories(galDir);
       std::filesystem::path srcP(path);
-      std::string destP = galDir + "/slot" + std::to_string(slot) + "_" +
+      std::string destP = galDir + "/slot" + std::to_string(targetSlot) + "_" +
                           srcP.filename().string();
       std::filesystem::copy_file(
           srcP, destP, std::filesystem::copy_options::overwrite_existing);
